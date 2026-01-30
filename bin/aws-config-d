@@ -109,6 +109,38 @@ _disable() {
     echo "disabled: $name (moved to disabled/)"
 }
 
+_rm() {
+    local name="$1"
+
+    if [ "$name" = "00-defaults" ]; then
+        echo "cannot remove 00-defaults" >&2
+        return 1
+    fi
+
+    local found=false
+
+    # Check enabled location
+    if [ -f "$CONFIG_D/$name" ]; then
+        rm "$CONFIG_D/$name"
+        found=true
+    fi
+
+    # Check disabled locations
+    for f in "$CONFIG_D/disabled/$name" "$CONFIG_D/off/$name" "$CONFIG_D/${name}.off"; do
+        if [ -f "$f" ]; then
+            rm "$f"
+            found=true
+        fi
+    done
+
+    if [ "$found" = true ]; then
+        echo "removed: $name"
+    else
+        echo "not found: $name" >&2
+        return 1
+    fi
+}
+
 _rebuild() {
     local sources
     sources=$(_sources)
@@ -147,6 +179,7 @@ _help() {
     echo "  ls, list         List enabled and disabled profile collections"
     echo "  enable <name>    Enable a disabled profile collection"
     echo "  disable <name>   Disable a profile collection (moves to disabled/)"
+    echo "  rm <name>        Permanently delete a profile collection"
     echo "  help             Show this help"
 }
 
@@ -194,6 +227,13 @@ case "${1:-help}" in
             exit 1
         fi
         _disable "$2"
+        ;;
+    rm|remove)
+        if [ -z "${2:-}" ]; then
+            echo "Usage: aws-config-d rm <name>" >&2
+            exit 1
+        fi
+        _rm "$2"
         ;;
     help|-h|--help)
         _help
