@@ -1,0 +1,2 @@
+Park profile files here to stop them being rendered into ~/.aws/config
+without having to delete them. Move them back to config.d/ to re-enable.
