@@ -87,7 +87,7 @@ cp bin/aws-config-d ~/.local/bin/aws-config-d
 4. Rebuild the config:
 
 ```bash
-aws-config-d --force
+aws-config-d force
 ```
 
 ## Usage
@@ -129,7 +129,7 @@ Files are concatenated in lexicographic order. Use numeric prefixes to control o
 ### Forcing a rebuild
 
 ```bash
-aws-config-d --force
+aws-config-d force
 ```
 
 This rebuilds `~/.aws/config` unconditionally and resets the drift hash.
@@ -142,10 +142,10 @@ If `~/.aws/config` is modified outside of `config.d/` (e.g., by `aws configure s
 aws: WARNING — ~/.aws/config was modified outside of config.d/
 aws: possibly by 'aws configure sso' or manual editing.
 aws: reconcile changes into ~/.aws/config.d/ then run:
-aws:   aws-config-d --force
+aws:   aws-config-d force
 ```
 
-Copy the relevant changes into the appropriate file under `config.d/`, then run `aws-config-d --force` to rebuild.
+Copy the relevant changes into the appropriate file under `config.d/`, then run `aws-config-d force` to rebuild.
 
 ## Testing
 
@@ -162,7 +162,7 @@ This runs 32 tests across bash, zsh, and fish covering:
 - Idempotent installs (running twice doesn't duplicate the hook)
 - Generated config contains all profiles from all source files
 - Migration of existing `~/.aws/config`
-- `aws-config-d --force` unconditional rebuild
+- `aws-config-d force` unconditional rebuild
 - Drift detection when config is modified externally
 - Disabling profiles via `.off` suffix and `disabled/` directory
 - `list`, `enable`, and `disable` commands
@@ -173,7 +173,7 @@ Docker images used: `bash:latest`, `zshusers/zsh:latest`, `purefish/docker-fish:
 ## Limitations
 
 - The AWS CLI does not support `config.d/` natively. This is a workaround that concatenates files.
-- Editing `~/.aws/config` directly (e.g., via `aws configure sso`) will trigger a drift warning on the next rebuild. Reconcile changes into `config.d/` and run `aws-config-d --force`.
+- Editing `~/.aws/config` directly (e.g., via `aws configure sso`) will trigger a drift warning on the next rebuild. Reconcile changes into `config.d/` and run `aws-config-d force`.
 - `~/.aws/credentials` is not managed by this tool. You could apply the same pattern with a `credentials.d/` directory if needed.
 
 ## License

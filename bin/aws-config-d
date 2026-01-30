@@ -131,14 +131,26 @@ _check_drift() {
             echo "aws: WARNING — $CONFIG was modified outside of config.d/"
             echo "aws: possibly by 'aws configure sso' or manual editing."
             echo "aws: reconcile changes into $CONFIG_D/ then run:"
-            echo "aws:   aws-config-d --force"
+            echo "aws:   aws-config-d force"
             return 1
         fi
     fi
     return 0
 }
 
-case "${1:-auto}" in
+_help() {
+    echo "Usage: aws-config-d <command>"
+    echo ""
+    echo "Commands:"
+    echo "  auto             Check for changes and rebuild if needed"
+    echo "  force            Rebuild unconditionally, resetting the drift hash"
+    echo "  ls, list         List enabled and disabled profile collections"
+    echo "  enable <name>    Enable a disabled profile collection"
+    echo "  disable <name>   Disable a profile collection (moves to disabled/)"
+    echo "  help             Show this help"
+}
+
+case "${1:-help}" in
     auto)
         # Called from shell hooks — only rebuild if sources are newer
         if [ ! -d "$CONFIG_D" ]; then exit 0; fi
@@ -159,7 +171,7 @@ case "${1:-auto}" in
             fi
         fi
         ;;
-    -f|--force)
+    force|-f|--force)
         if [ ! -d "$CONFIG_D" ]; then
             echo "aws: $CONFIG_D does not exist" >&2
             exit 1
@@ -183,20 +195,13 @@ case "${1:-auto}" in
         fi
         _disable "$2"
         ;;
-    -h|--help)
-        echo "Usage: aws-config-d [command]"
-        echo ""
-        echo "Commands:"
-        echo "  auto             Check for changes and rebuild if needed (default)"
-        echo "  ls, list         List enabled and disabled profile collections"
-        echo "  enable <name>    Enable a disabled profile collection"
-        echo "  disable <name>   Disable a profile collection (moves to disabled/)"
-        echo "  -f, --force      Rebuild unconditionally, resetting the drift hash"
-        echo "  -h, --help       Show this help"
+    help|-h|--help)
+        _help
         ;;
     *)
-        echo "Unknown option: $1" >&2
-        echo "Run 'aws-config-d --help' for usage" >&2
+        echo "Unknown command: $1" >&2
+        echo ""
+        _help >&2
         exit 1
         ;;
 esac
