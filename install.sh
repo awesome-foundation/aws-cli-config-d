@@ -109,5 +109,5 @@ if [ "$installed_any" = false ]; then
 fi
 
 # Trigger initial build
-aws-config-d --force
+aws-config-d force
 echo "done!"

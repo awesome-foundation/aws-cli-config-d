@@ -350,6 +350,34 @@ test_force_resets_drift() {
     '
 }
 
+test_force_without_dashes() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+
+        export PATH="$HOME/.local/bin:$PATH"
+        output=$(aws-config-d force 2>&1)
+        echo "$output" | grep -q "aws: rebuilt"
+    '
+}
+
+test_help_is_default() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+
+        export PATH="$HOME/.local/bin:$PATH"
+        output=$(aws-config-d 2>&1)
+        echo "$output" | grep -q "Usage:"
+    '
+}
+
 # --- disable tests ---
 
 test_off_suffix_excluded() {
@@ -548,6 +576,8 @@ echo ""
 echo "=== aws-config-d command ==="
 run_test "force: rebuilds unconditionally" test_force_rebuild
 run_test "force: resets drift (overwrites external edits)" test_force_resets_drift
+run_test "force: works without dashes" test_force_without_dashes
+run_test "help: shown by default with no args" test_help_is_default
 
 echo ""
 echo "=== disable profiles ==="
