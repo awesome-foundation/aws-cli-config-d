@@ -48,8 +48,6 @@ This will:
 
 The installer checks for all three shells and installs hooks for each one it finds, so if you use multiple shells they'll all work.
 
-There is also `install.fish` if you only use fish and prefer a fish-native installer.
-
 ### Manual
 
 1. Create `~/.aws/config.d/` and move your profiles into per-organization files:
@@ -105,6 +103,23 @@ touch ~/.aws/config.d/00-defaults
 ```
 
 Then open a new shell session.
+
+## Testing
+
+Tests run each shell in an isolated Docker container to verify the install and rebuild hooks work correctly. Requires Docker.
+
+```bash
+./test.sh
+```
+
+This runs 11 tests across bash, zsh, and fish covering:
+- Hook installation into the correct RC file
+- Config rebuild when a source file is touched
+- No rebuild when nothing changed
+- Idempotent installs (running twice doesn't duplicate the hook)
+- Generated config contains all profiles from all source files
+
+Docker images used: `bash:latest`, `zshusers/zsh:latest`, `purefish/docker-fish:latest`.
 
 ## Limitations
 

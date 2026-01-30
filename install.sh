@@ -40,13 +40,13 @@ install_hook() {
 installed_any=false
 
 # bash
-if [ -f ~/.bashrc ] || [ "$SHELL" = */bash ]; then
+if [ -f ~/.bashrc ] || [[ "${SHELL:-}" == */bash ]]; then
     install_hook ~/.bashrc "$SCRIPT_DIR/config.bash.snippet"
     installed_any=true
 fi
 
 # zsh
-if [ -f ~/.zshrc ] || [ "$SHELL" = */zsh ]; then
+if [ -f ~/.zshrc ] || [[ "${SHELL:-}" == */zsh ]]; then
     install_hook ~/.zshrc "$SCRIPT_DIR/config.zsh.snippet"
     installed_any=true
 fi
