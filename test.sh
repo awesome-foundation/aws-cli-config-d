@@ -603,6 +603,81 @@ test_examples_not_rendered_into_config() {
     '
 }
 
+# --- rm tests ---
+
+test_rm_deletes_enabled_file() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+        export PATH="$HOME/.local/bin:$PATH"
+
+        echo "[profile acme-dev]" > "$HOME/.aws/config.d/acme-corp"
+        aws-config-d rm acme-corp > /dev/null 2>&1
+        test ! -f "$HOME/.aws/config.d/acme-corp"
+    '
+}
+
+test_rm_deletes_disabled_file() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+        export PATH="$HOME/.local/bin:$PATH"
+
+        echo "[profile acme-dev]" > "$HOME/.aws/config.d/acme-corp"
+        aws-config-d disable acme-corp > /dev/null 2>&1
+        aws-config-d rm acme-corp > /dev/null 2>&1
+        test ! -f "$HOME/.aws/config.d/disabled/acme-corp"
+    '
+}
+
+test_rm_deletes_off_suffix_file() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+        export PATH="$HOME/.local/bin:$PATH"
+
+        echo "[profile acme-dev]" > "$HOME/.aws/config.d/acme-corp.off"
+        aws-config-d rm acme-corp > /dev/null 2>&1
+        test ! -f "$HOME/.aws/config.d/acme-corp.off"
+    '
+}
+
+test_rm_prevents_00_defaults() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+        export PATH="$HOME/.local/bin:$PATH"
+
+        if aws-config-d rm 00-defaults 2>/dev/null; then exit 1; fi
+        test -f "$HOME/.aws/config.d/00-defaults"
+    '
+}
+
+test_rm_not_found() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+        export PATH="$HOME/.local/bin:$PATH"
+
+        if aws-config-d rm nonexistent 2>/dev/null; then exit 1; fi
+    '
+}
+
 # --- run all tests ---
 
 echo "=== bash ==="
@@ -660,6 +735,14 @@ echo "=== example profiles ==="
 run_test "example: fresh install copies .example files" test_fresh_install_copies_examples
 run_test "example: not copied when user files exist" test_examples_not_copied_when_user_files_exist
 run_test "example: .example files not rendered into config" test_examples_not_rendered_into_config
+
+echo ""
+echo "=== rm ==="
+run_test "rm: deletes enabled file" test_rm_deletes_enabled_file
+run_test "rm: deletes disabled file" test_rm_deletes_disabled_file
+run_test "rm: deletes .off suffix file" test_rm_deletes_off_suffix_file
+run_test "rm: prevents removing 00-defaults" test_rm_prevents_00_defaults
+run_test "rm: fails for nonexistent file" test_rm_not_found
 
 echo ""
 echo "=== drift detection ==="
