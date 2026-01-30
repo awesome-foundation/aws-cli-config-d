@@ -154,7 +154,7 @@ test_fish_rebuild_on_change() {
         sleep 1
         touch "$HOME/.aws/config.d/00-defaults"
 
-        output=$(fish -c "source $HOME/.config/fish/config.fish" 2>&1)
+        output=$(fish -c "set -x PATH $HOME/.local/bin \$PATH; source $HOME/.config/fish/config.fish" 2>&1)
         echo "$output" | grep -q "aws: rebuilt"
     '
 }
@@ -166,7 +166,7 @@ test_fish_no_rebuild_when_unchanged() {
         mkdir -p "$HOME/.config/fish"
         ./install.sh > /dev/null 2>&1
 
-        output=$(fish -c "source $HOME/.config/fish/config.fish" 2>&1)
+        output=$(fish -c "set -x PATH $HOME/.local/bin \$PATH; source $HOME/.config/fish/config.fish" 2>&1)
         if echo "$output" | grep -q "aws: rebuilt"; then exit 1; fi
     '
 }
@@ -310,8 +310,41 @@ test_fish_drift_warns_on_external_edit() {
         sleep 1
         touch "$HOME/.aws/config.d/00-defaults"
 
-        output=$(fish -c "source $HOME/.config/fish/config.fish" 2>&1)
+        output=$(fish -c "set -x PATH $HOME/.local/bin \$PATH; source $HOME/.config/fish/config.fish" 2>&1)
         echo "$output" | grep -q "WARNING"
+    '
+}
+
+# --- aws-config-d command tests ---
+
+test_force_rebuild() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+
+        # force rebuild even though nothing changed
+        output=$(aws-config-d --force 2>&1)
+        echo "$output" | grep -q "aws: rebuilt"
+    '
+}
+
+test_force_resets_drift() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+
+        # simulate external edit (creates drift)
+        echo "# sneaky edit" >> "$HOME/.aws/config"
+
+        # force should overwrite despite drift
+        aws-config-d --force > /dev/null 2>&1
+        if grep -q "sneaky edit" "$HOME/.aws/config"; then exit 1; fi
     '
 }
 
@@ -343,6 +376,11 @@ run_test "migrate: preserves config content after rebuild" test_migrate_preserve
 run_test "migrate: rebuilt config starts with header comment" test_migrate_has_header_comment
 run_test "migrate: fresh install has header comment" test_fresh_install_has_header_comment
 run_test "migrate: skips when config.d already has files" test_no_migrate_when_config_d_exists
+
+echo ""
+echo "=== aws-config-d command ==="
+run_test "force: rebuilds unconditionally" test_force_rebuild
+run_test "force: resets drift (overwrites external edits)" test_force_resets_drift
 
 echo ""
 echo "=== drift detection ==="

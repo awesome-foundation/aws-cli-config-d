@@ -38,12 +38,27 @@ else
 fi
 
 # Detect shell and install hook
+# Install aws-config-d command
+install_dir="${INSTALL_DIR:-/usr/local/bin}"
+if [ -w "$install_dir" ]; then
+    cp "$SCRIPT_DIR/bin/aws-config-d" "$install_dir/aws-config-d"
+    echo "installed: aws-config-d -> $install_dir/aws-config-d"
+else
+    mkdir -p ~/.local/bin
+    cp "$SCRIPT_DIR/bin/aws-config-d" ~/.local/bin/aws-config-d
+    install_dir=~/.local/bin
+    echo "installed: aws-config-d -> $install_dir/aws-config-d"
+    # Ensure ~/.local/bin is in PATH for current session
+    export PATH="$install_dir:$PATH"
+fi
+
+# Detect shell and install hook
 install_hook() {
     local rc_file="$1"
     local snippet_file="$2"
 
     if [ -f "$rc_file" ]; then
-        if grep -q "aws/config.d" "$rc_file"; then
+        if grep -q "aws-config-d" "$rc_file"; then
             echo "skip: hook already present in $rc_file"
             return
         fi
@@ -75,7 +90,7 @@ fi
 if [ -d ~/.config/fish ] || command -v fish >/dev/null 2>&1; then
     mkdir -p ~/.config/fish
     fish_config=~/.config/fish/config.fish
-    if [ -f "$fish_config" ] && grep -q "aws/config.d" "$fish_config"; then
+    if [ -f "$fish_config" ] && grep -q "aws-config-d" "$fish_config"; then
         echo "skip: hook already present in $fish_config"
     else
         {
@@ -95,7 +110,5 @@ if [ "$installed_any" = false ]; then
 fi
 
 # Trigger initial build
-cat ~/.aws/config.d/* > ~/.aws/config
-{ sha256sum ~/.aws/config 2>/dev/null || shasum -a 256 ~/.aws/config; } | cut -d' ' -f1 > ~/.aws/config.d/.config.sha256
-echo "built: ~/.aws/config from config.d/"
+aws-config-d --force
 echo "done!"

@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONFIG=~/.aws/config
+CONFIG_D=~/.aws/config.d
+HASH_FILE="$CONFIG_D/.config.sha256"
+
+_hash() { { sha256sum "$1" 2>/dev/null || shasum -a 256 "$1"; } | cut -d' ' -f1; }
+
+_rebuild() {
+    cat "$CONFIG_D"/* > "$CONFIG"
+    _hash "$CONFIG" > "$HASH_FILE"
+    echo "aws: rebuilt $CONFIG from config.d/"
+}
+
+_check_drift() {
+    if [ -f "$CONFIG" ] && [ -f "$HASH_FILE" ]; then
+        local current expected
+        current=$(_hash "$CONFIG")
+        expected=$(cat "$HASH_FILE")
+        if [ "$current" != "$expected" ]; then
+            echo "aws: WARNING — $CONFIG was modified outside of config.d/"
+            echo "aws: possibly by 'aws configure sso' or manual editing."
+            echo "aws: reconcile changes into $CONFIG_D/ then run:"
+            echo "aws:   aws-config-d --force"
+            return 1
+        fi
+    fi
+    return 0
+}
+
+case "${1:-auto}" in
+    auto)
+        # Called from shell hooks — only rebuild if sources are newer
+        if [ ! -d "$CONFIG_D" ]; then exit 0; fi
+        if [ ! -f "$CONFIG" ]; then
+            _rebuild
+            exit 0
+        fi
+        needs_rebuild=false
+        for f in "$CONFIG_D"/*; do
+            if [ "$f" -nt "$CONFIG" ]; then
+                needs_rebuild=true
+                break
+            fi
+        done
+        if [ "$needs_rebuild" = true ]; then
+            if _check_drift; then
+                _rebuild
+            fi
+        fi
+        ;;
+    -f|--force)
+        if [ ! -d "$CONFIG_D" ]; then
+            echo "aws: $CONFIG_D does not exist" >&2
+            exit 1
+        fi
+        _rebuild
+        ;;
+    -h|--help)
+        echo "Usage: aws-config-d [auto|--force|--help]"
+        echo ""
+        echo "  auto      Check for changes and rebuild if needed (default)"
+        echo "  -f/--force  Rebuild unconditionally, resetting the drift hash"
+        echo "  -h/--help   Show this help"
+        ;;
+    *)
+        echo "Unknown option: $1" >&2
+        echo "Run 'aws-config-d --help' for usage" >&2
+        exit 1
+        ;;
+esac
