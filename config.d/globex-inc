@@ -1,0 +1,16 @@
+[profile globex-sandbox]
+sso_session=globex
+sso_account_id=333333333333
+sso_role_name=AdministratorAccess
+region=eu-west-1
+
+[profile globex-prod]
+sso_session=globex
+sso_account_id=444444444444
+sso_role_name=DeveloperAccess
+region=eu-west-1
+
+[sso-session globex]
+sso_start_url=https://globex-inc.awsapps.com/start/
+sso_region=eu-west-1
+sso_registration_scopes=sso:account:access

@@ -1,0 +1,28 @@
+[profile acme-dev]
+sso_session=acme
+sso_account_id=111111111111
+sso_role_name=DeveloperAccess
+region=us-east-1
+
+[profile acme-dev-admin]
+sso_session=acme
+sso_account_id=111111111111
+sso_role_name=AdministratorAccess
+region=us-east-1
+
+[profile acme-prod]
+sso_session=acme
+sso_account_id=222222222222
+sso_role_name=DeveloperAccess
+region=us-east-1
+
+[profile acme-prod-admin]
+sso_session=acme
+sso_account_id=222222222222
+sso_role_name=AdministratorAccess
+region=us-east-1
+
+[sso-session acme]
+sso_start_url=https://acme-corp.awsapps.com/start/
+sso_region=us-east-1
+sso_registration_scopes=sso:account:access
