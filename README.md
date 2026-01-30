@@ -12,9 +12,11 @@ Instead of maintaining a single `~/.aws/config`, you keep per-organization files
 
 ```
 ~/.aws/config.d/
-  00-defaults     # default profile, shared settings
-  acme-corp       # all Acme Corp profiles + SSO session
-  globex-inc      # all Globex Inc profiles + SSO session
+  00-defaults      # default profile, shared settings
+  acme-corp        # all Acme Corp profiles + SSO session
+  globex-inc       # all Globex Inc profiles + SSO session
+  old-client.off   # ignored — .off suffix disables it
+  disabled/        # move files here to disable without deleting
 ```
 
 A shell hook runs at the start of each session and calls `aws-config-d auto`, which checks if any file in `config.d/` is newer than `~/.aws/config`. If so, it concatenates them all into `~/.aws/config` and prints a message:
@@ -50,7 +52,7 @@ cd aws-cli-config-d
 ```
 
 The installer will:
-1. Create `~/.aws/config.d/` with a `00-defaults` header file
+1. Create `~/.aws/config.d/` with a `00-defaults` header file and `disabled/` subfolder
 2. If `~/.aws/config` already exists and `config.d/` is empty, migrate it to `~/.aws/config.d/01-migrated-config` so nothing is lost
 3. Install the `aws-config-d` command to `~/.local/bin` (override with `INSTALL_DIR`)
 4. Detect your shell(s) and add the auto-rebuild hook to the appropriate RC file(s)
@@ -59,6 +61,8 @@ The installer will:
 If you had an existing config, you'll be prompted to split it into per-organization files at your convenience.
 
 The installer checks for all three shells and installs hooks for each one it finds, so if you use multiple shells they'll all work.
+
+Re-running the installer is safe — it always updates `aws-config-d` to the latest version, skips hooks that are already installed, and won't overwrite your config files.
 
 ### Manual
 
@@ -108,6 +112,15 @@ sso_registration_scopes=sso:account:access
 
 The next time you open a shell, the config will be rebuilt automatically.
 
+### Disabling profiles
+
+To temporarily disable an organization's profiles without deleting them:
+
+- **Rename with `.off` suffix**: `mv ~/.aws/config.d/acme-corp ~/.aws/config.d/acme-corp.off`
+- **Move to `disabled/`**: `mv ~/.aws/config.d/acme-corp ~/.aws/config.d/disabled/`
+
+Then run `aws-config-d --force` to rebuild without those profiles.
+
 ### Ordering
 
 Files are concatenated in lexicographic order. Use numeric prefixes to control ordering (e.g., `00-defaults` runs first).
@@ -141,7 +154,7 @@ Tests run each shell in an isolated Docker container to verify the install and r
 ./test.sh
 ```
 
-This runs 22 tests across bash, zsh, and fish covering:
+This runs 26 tests across bash, zsh, and fish covering:
 - Hook installation into the correct RC file
 - Config rebuild when a source file is touched
 - No rebuild when nothing changed
@@ -150,6 +163,8 @@ This runs 22 tests across bash, zsh, and fish covering:
 - Migration of existing `~/.aws/config`
 - `aws-config-d --force` unconditional rebuild
 - Drift detection when config is modified externally
+- Disabling profiles via `.off` suffix and `disabled/` directory
+- Re-running installer updates the binary to latest version
 
 Docker images used: `bash:latest`, `zshusers/zsh:latest`, `purefish/docker-fish:latest`.
 

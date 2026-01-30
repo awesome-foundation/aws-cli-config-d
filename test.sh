@@ -350,6 +350,76 @@ test_force_resets_drift() {
     '
 }
 
+# --- disable tests ---
+
+test_off_suffix_excluded() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+        export PATH="$HOME/.local/bin:$PATH"
+
+        # disable acme-corp by renaming with .off suffix
+        mv "$HOME/.aws/config.d/acme-corp" "$HOME/.aws/config.d/acme-corp.off"
+        aws-config-d --force > /dev/null 2>&1
+
+        # acme profiles should be gone, globex should remain
+        if grep -q "\[profile acme-dev\]" "$HOME/.aws/config"; then exit 1; fi
+        grep -q "\[profile globex-sandbox\]" "$HOME/.aws/config"
+    '
+}
+
+test_disabled_dir_excluded() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+        export PATH="$HOME/.local/bin:$PATH"
+
+        # disable globex by moving to disabled/
+        mkdir -p "$HOME/.aws/config.d/disabled"
+        mv "$HOME/.aws/config.d/globex-inc" "$HOME/.aws/config.d/disabled/globex-inc"
+        aws-config-d --force > /dev/null 2>&1
+
+        # globex profiles should be gone, acme should remain
+        if grep -q "\[profile globex-sandbox\]" "$HOME/.aws/config"; then exit 1; fi
+        grep -q "\[profile acme-dev\]" "$HOME/.aws/config"
+    '
+}
+
+test_installer_creates_disabled_dir() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+        test -d "$HOME/.aws/config.d/disabled"
+    '
+}
+
+test_installer_updates_binary() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+
+        # tamper with the installed binary
+        echo "# old version" > "$HOME/.local/bin/aws-config-d"
+
+        # re-run installer — should overwrite with latest
+        ./install.sh > /dev/null 2>&1
+        if grep -q "old version" "$HOME/.local/bin/aws-config-d"; then exit 1; fi
+        grep -q "_rebuild" "$HOME/.local/bin/aws-config-d"
+    '
+}
+
 # --- run all tests ---
 
 echo "=== bash ==="
@@ -383,6 +453,13 @@ echo ""
 echo "=== aws-config-d command ==="
 run_test "force: rebuilds unconditionally" test_force_rebuild
 run_test "force: resets drift (overwrites external edits)" test_force_resets_drift
+
+echo ""
+echo "=== disable profiles ==="
+run_test "off: .off suffix excludes file from config" test_off_suffix_excluded
+run_test "off: disabled/ dir excludes file from config" test_disabled_dir_excluded
+run_test "off: installer creates disabled/ dir" test_installer_creates_disabled_dir
+run_test "off: re-running installer updates binary" test_installer_updates_binary
 
 echo ""
 echo "=== drift detection ==="

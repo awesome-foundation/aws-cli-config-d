@@ -7,8 +7,26 @@ HASH_FILE="$CONFIG_D/.config.sha256"
 
 _hash() { { sha256sum "$1" 2>/dev/null || shasum -a 256 "$1"; } | cut -d' ' -f1; }
 
+_sources() {
+    # List enabled config files: skip dotfiles, *.off files, and off/ & disabled/ dirs
+    for f in "$CONFIG_D"/*; do
+        [ -f "$f" ] || continue
+        case "$(basename "$f")" in
+            .*|*.off) continue ;;
+        esac
+        echo "$f"
+    done
+}
+
 _rebuild() {
-    cat "$CONFIG_D"/* > "$CONFIG"
+    local sources
+    sources=$(_sources)
+    if [ -z "$sources" ]; then
+        echo "aws: no enabled config files in $CONFIG_D" >&2
+        return 1
+    fi
+    # shellcheck disable=SC2086
+    cat $sources > "$CONFIG"
     _hash "$CONFIG" > "$HASH_FILE"
     echo "aws: rebuilt $CONFIG from config.d/"
 }
@@ -38,7 +56,7 @@ case "${1:-auto}" in
             exit 0
         fi
         needs_rebuild=false
-        for f in "$CONFIG_D"/*; do
+        for f in $(_sources); do
             if [ "$f" -nt "$CONFIG" ]; then
                 needs_rebuild=true
                 break

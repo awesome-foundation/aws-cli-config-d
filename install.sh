@@ -3,8 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Create config.d directory
-mkdir -p ~/.aws/config.d
+# Create config.d directory and disabled/ subfolder
+mkdir -p ~/.aws/config.d/disabled
 
 # Always ensure 00-defaults exists with the managed-file header
 if [ ! -f ~/.aws/config.d/00-defaults ]; then
@@ -26,6 +26,7 @@ if [ -f ~/.aws/config ] && [ -z "$existing_files" ]; then
 else
     # Copy example files (skip if real files already exist)
     for f in "$SCRIPT_DIR"/config.d/*; do
+        [ -f "$f" ] || continue
         basename="$(basename "$f")"
         if [ "$basename" = "00-defaults" ]; then continue; fi
         if [ -f ~/.aws/config.d/"$basename" ]; then
