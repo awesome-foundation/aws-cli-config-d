@@ -83,7 +83,7 @@ test_bash_config_content() {
         ./install.sh > /dev/null 2>&1
         grep -q "\[profile acme-dev\]" "$HOME/.aws/config" &&
         grep -q "\[profile globex-sandbox\]" "$HOME/.aws/config" &&
-        grep -q "\[default\]" "$HOME/.aws/config"
+        grep -q "managed by" "$HOME/.aws/config"
     '
 }
 
@@ -171,6 +171,72 @@ test_fish_no_rebuild_when_unchanged() {
     '
 }
 
+# --- migration tests ---
+
+test_migrate_existing_config() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME/.aws"
+        touch "$HOME/.bashrc"
+        echo -e "[default]\nregion=us-east-1\n\n[profile myorg-dev]\nregion=eu-west-1" > "$HOME/.aws/config"
+        ./install.sh > /tmp/out 2>&1
+        grep -q "migrated:.*01-migrated-config" /tmp/out &&
+        grep -q "\[profile myorg-dev\]" "$HOME/.aws/config.d/01-migrated-config" &&
+        grep -q "Split it into per-organization files" /tmp/out
+    '
+}
+
+test_migrate_preserves_content() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME/.aws"
+        touch "$HOME/.bashrc"
+        echo -e "[default]\nregion=us-east-1\n\n[profile foo]\nregion=eu-west-1" > "$HOME/.aws/config"
+        ./install.sh > /dev/null 2>&1
+        # rebuilt config should have same content as original
+        grep -q "\[default\]" "$HOME/.aws/config" &&
+        grep -q "\[profile foo\]" "$HOME/.aws/config"
+    '
+}
+
+test_migrate_has_header_comment() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME/.aws"
+        touch "$HOME/.bashrc"
+        echo -e "[default]\nregion=us-east-1" > "$HOME/.aws/config"
+        ./install.sh > /dev/null 2>&1
+        head -1 "$HOME/.aws/config" | grep -q "managed by"
+    '
+}
+
+test_fresh_install_has_header_comment() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+        head -1 "$HOME/.aws/config" | grep -q "managed by"
+    '
+}
+
+test_no_migrate_when_config_d_exists() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME/.aws/config.d"
+        touch "$HOME/.bashrc"
+        echo "[default]" > "$HOME/.aws/config"
+        echo "[profile existing]" > "$HOME/.aws/config.d/existing"
+        ./install.sh > /tmp/out 2>&1
+        if grep -q "migrated:" /tmp/out; then exit 1; fi
+    '
+}
+
 # --- run all tests ---
 
 echo "=== bash ==="
@@ -191,6 +257,14 @@ echo "=== fish ==="
 run_test "fish: install adds hook to config.fish" test_fish_install
 run_test "fish: rebuilds config when file touched" test_fish_rebuild_on_change
 run_test "fish: no rebuild when unchanged" test_fish_no_rebuild_when_unchanged
+
+echo ""
+echo "=== migration ==="
+run_test "migrate: moves existing config to 01-migrated-config" test_migrate_existing_config
+run_test "migrate: preserves config content after rebuild" test_migrate_preserves_content
+run_test "migrate: rebuilt config starts with header comment" test_migrate_has_header_comment
+run_test "migrate: fresh install has header comment" test_fresh_install_has_header_comment
+run_test "migrate: skips when config.d already has files" test_no_migrate_when_config_d_exists
 
 echo ""
 echo "---"
