@@ -6,20 +6,28 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Create config.d directory
 mkdir -p ~/.aws/config.d
 
-# Migrate existing config if present and config.d is empty
-if [ -f ~/.aws/config ] && [ -z "$(ls -A ~/.aws/config.d 2>/dev/null)" ]; then
-    cp ~/.aws/config ~/.aws/config.d/00-defaults
-    echo "migrated: ~/.aws/config -> ~/.aws/config.d/00-defaults"
+# Always ensure 00-defaults exists with the managed-file header
+if [ ! -f ~/.aws/config.d/00-defaults ]; then
+    cp "$SCRIPT_DIR/config.d/00-defaults" ~/.aws/config.d/00-defaults
+    echo "created: ~/.aws/config.d/00-defaults"
+fi
+
+# Migrate existing config if present and no other config.d files exist yet
+existing_files=$(find ~/.aws/config.d -maxdepth 1 -type f ! -name '00-defaults' 2>/dev/null)
+if [ -f ~/.aws/config ] && [ -z "$existing_files" ]; then
+    cp ~/.aws/config ~/.aws/config.d/01-migrated-config
+    echo "migrated: ~/.aws/config -> ~/.aws/config.d/01-migrated-config"
     echo ""
-    echo "  Your existing config has been moved to ~/.aws/config.d/00-defaults."
+    echo "  Your existing config has been moved to ~/.aws/config.d/01-migrated-config."
     echo "  Split it into per-organization files under ~/.aws/config.d/ at your convenience."
     echo "  For example, move [profile acme-*] and [sso-session acme] sections"
-    echo "  into ~/.aws/config.d/acme, then remove them from 00-defaults."
+    echo "  into ~/.aws/config.d/acme, then remove them from 01-migrated-config."
     echo ""
 else
     # Copy example files (skip if real files already exist)
     for f in "$SCRIPT_DIR"/config.d/*; do
         basename="$(basename "$f")"
+        if [ "$basename" = "00-defaults" ]; then continue; fi
         if [ -f ~/.aws/config.d/"$basename" ]; then
             echo "skip: ~/.aws/config.d/$basename already exists"
         else
