@@ -1,18 +1,2 @@
 # Auto-rebuild ~/.aws/config from ~/.aws/config.d/ if any source file is newer
-if test -d ~/.aws/config.d
-    set -l needs_rebuild no
-    if not test -f ~/.aws/config
-        set needs_rebuild yes
-    else
-        for f in ~/.aws/config.d/*
-            if test $f -nt ~/.aws/config
-                set needs_rebuild yes
-                break
-            end
-        end
-    end
-    if test $needs_rebuild = yes
-        cat ~/.aws/config.d/* > ~/.aws/config
-        echo "aws: rebuilt ~/.aws/config from config.d/"
-    end
-end
+command -q aws-config-d; and aws-config-d auto
