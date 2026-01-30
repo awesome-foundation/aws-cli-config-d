@@ -420,6 +420,101 @@ test_installer_updates_binary() {
     '
 }
 
+# --- list/enable/disable tests ---
+
+test_list_shows_enabled_and_disabled() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+        export PATH="$HOME/.local/bin:$PATH"
+
+        output=$(aws-config-d list 2>&1)
+        echo "$output" | grep -q "enabled:" &&
+        echo "$output" | grep -q "acme-corp" &&
+        echo "$output" | grep -q "disabled:"
+    '
+}
+
+test_disable_moves_to_disabled_dir() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+        export PATH="$HOME/.local/bin:$PATH"
+
+        aws-config-d disable acme-corp > /dev/null 2>&1
+        test -f "$HOME/.aws/config.d/disabled/acme-corp" &&
+        test ! -f "$HOME/.aws/config.d/acme-corp"
+    '
+}
+
+test_enable_from_disabled_dir() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+        export PATH="$HOME/.local/bin:$PATH"
+
+        aws-config-d disable acme-corp > /dev/null 2>&1
+        aws-config-d enable acme-corp > /dev/null 2>&1
+        test -f "$HOME/.aws/config.d/acme-corp" &&
+        test ! -f "$HOME/.aws/config.d/disabled/acme-corp"
+    '
+}
+
+test_enable_from_off_suffix() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+        export PATH="$HOME/.local/bin:$PATH"
+
+        # manually create a .off file
+        mv "$HOME/.aws/config.d/acme-corp" "$HOME/.aws/config.d/acme-corp.off"
+        aws-config-d enable acme-corp > /dev/null 2>&1
+        test -f "$HOME/.aws/config.d/acme-corp" &&
+        test ! -f "$HOME/.aws/config.d/acme-corp.off"
+    '
+}
+
+test_disable_prevents_00_defaults() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+        export PATH="$HOME/.local/bin:$PATH"
+
+        if aws-config-d disable 00-defaults 2>/dev/null; then exit 1; fi
+        test -f "$HOME/.aws/config.d/00-defaults"
+    '
+}
+
+test_list_shows_disabled_files() {
+    docker run --rm -v "$SCRIPT_DIR":/src:ro bash:latest bash -c '
+        cp -r /src /work && cd /work
+        HOME=/tmp/fakehome && export HOME
+        mkdir -p "$HOME"
+        touch "$HOME/.bashrc"
+        ./install.sh > /dev/null 2>&1
+        export PATH="$HOME/.local/bin:$PATH"
+
+        aws-config-d disable acme-corp > /dev/null 2>&1
+        output=$(aws-config-d list 2>&1)
+        echo "$output" | grep -q "disabled/acme-corp"
+    '
+}
+
 # --- run all tests ---
 
 echo "=== bash ==="
@@ -460,6 +555,15 @@ run_test "off: .off suffix excludes file from config" test_off_suffix_excluded
 run_test "off: disabled/ dir excludes file from config" test_disabled_dir_excluded
 run_test "off: installer creates disabled/ dir" test_installer_creates_disabled_dir
 run_test "off: re-running installer updates binary" test_installer_updates_binary
+
+echo ""
+echo "=== list/enable/disable ==="
+run_test "list: shows enabled and disabled sections" test_list_shows_enabled_and_disabled
+run_test "disable: moves file to disabled/" test_disable_moves_to_disabled_dir
+run_test "enable: restores from disabled/" test_enable_from_disabled_dir
+run_test "enable: restores from .off suffix" test_enable_from_off_suffix
+run_test "disable: prevents disabling 00-defaults" test_disable_prevents_00_defaults
+run_test "list: shows disabled files" test_list_shows_disabled_files
 
 echo ""
 echo "=== drift detection ==="

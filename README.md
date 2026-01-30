@@ -112,14 +112,15 @@ sso_registration_scopes=sso:account:access
 
 The next time you open a shell, the config will be rebuilt automatically.
 
-### Disabling profiles
+### Disabling and enabling profiles
 
-To temporarily disable an organization's profiles without deleting them:
+```bash
+aws-config-d disable acme-corp    # moves to disabled/
+aws-config-d enable acme-corp     # moves back
+aws-config-d list                 # shows enabled and disabled
+```
 
-- **Rename with `.off` suffix**: `mv ~/.aws/config.d/acme-corp ~/.aws/config.d/acme-corp.off`
-- **Move to `disabled/`**: `mv ~/.aws/config.d/acme-corp ~/.aws/config.d/disabled/`
-
-Then run `aws-config-d --force` to rebuild without those profiles.
+You can also disable manually by renaming with a `.off` suffix or moving to `disabled/`. The `enable` command understands both conventions. The `disable` command always moves to `disabled/`.
 
 ### Ordering
 
@@ -154,7 +155,7 @@ Tests run each shell in an isolated Docker container to verify the install and r
 ./test.sh
 ```
 
-This runs 26 tests across bash, zsh, and fish covering:
+This runs 32 tests across bash, zsh, and fish covering:
 - Hook installation into the correct RC file
 - Config rebuild when a source file is touched
 - No rebuild when nothing changed
@@ -164,6 +165,7 @@ This runs 26 tests across bash, zsh, and fish covering:
 - `aws-config-d --force` unconditional rebuild
 - Drift detection when config is modified externally
 - Disabling profiles via `.off` suffix and `disabled/` directory
+- `list`, `enable`, and `disable` commands
 - Re-running installer updates the binary to latest version
 
 Docker images used: `bash:latest`, `zshusers/zsh:latest`, `purefish/docker-fish:latest`.

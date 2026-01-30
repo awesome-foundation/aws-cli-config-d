@@ -8,7 +8,7 @@ HASH_FILE="$CONFIG_D/.config.sha256"
 _hash() { { sha256sum "$1" 2>/dev/null || shasum -a 256 "$1"; } | cut -d' ' -f1; }
 
 _sources() {
-    # List enabled config files: skip dotfiles, *.off files, and off/ & disabled/ dirs
+    # List enabled config files: skip dotfiles, *.off files, and directories
     for f in "$CONFIG_D"/*; do
         [ -f "$f" ] || continue
         case "$(basename "$f")" in
@@ -16,6 +16,97 @@ _sources() {
         esac
         echo "$f"
     done
+}
+
+_disabled() {
+    # List disabled config files: *.off in config.d/ + files in disabled/ and off/
+    for f in "$CONFIG_D"/*.off; do
+        [ -f "$f" ] || continue
+        echo "$f"
+    done
+    for dir in "$CONFIG_D"/disabled "$CONFIG_D"/off; do
+        [ -d "$dir" ] || continue
+        for f in "$dir"/*; do
+            [ -f "$f" ] || continue
+            case "$(basename "$f")" in
+                .*|README) continue ;;
+            esac
+            echo "$f"
+        done
+    done
+}
+
+_list() {
+    echo "enabled:"
+    local found=false
+    for f in $(_sources); do
+        local name
+        name=$(basename "$f")
+        [ "$name" = "00-defaults" ] && continue
+        echo "  $name"
+        found=true
+    done
+    if [ "$found" = false ]; then
+        echo "  (none)"
+    fi
+
+    echo ""
+    echo "disabled:"
+    local disabled_found=false
+    for f in $(_disabled); do
+        local name rel
+        rel=${f#"$CONFIG_D/"}
+        echo "  $rel"
+        disabled_found=true
+    done
+    if [ "$disabled_found" = false ]; then
+        echo "  (none)"
+    fi
+}
+
+_enable() {
+    local name="$1"
+
+    # Check disabled/ dir first, then off/ dir, then .off suffix
+    if [ -f "$CONFIG_D/disabled/$name" ]; then
+        mv "$CONFIG_D/disabled/$name" "$CONFIG_D/$name"
+        echo "enabled: $name"
+    elif [ -f "$CONFIG_D/off/$name" ]; then
+        mv "$CONFIG_D/off/$name" "$CONFIG_D/$name"
+        echo "enabled: $name"
+    elif [ -f "$CONFIG_D/${name}.off" ]; then
+        mv "$CONFIG_D/${name}.off" "$CONFIG_D/$name"
+        echo "enabled: $name"
+    elif [ -f "$CONFIG_D/$name" ]; then
+        echo "already enabled: $name" >&2
+        return 0
+    else
+        echo "not found: $name" >&2
+        return 1
+    fi
+}
+
+_disable() {
+    local name="$1"
+
+    if [ ! -f "$CONFIG_D/$name" ]; then
+        # Check if already disabled
+        if [ -f "$CONFIG_D/disabled/$name" ] || [ -f "$CONFIG_D/off/$name" ] || [ -f "$CONFIG_D/${name}.off" ]; then
+            echo "already disabled: $name" >&2
+            return 0
+        fi
+        echo "not found: $name" >&2
+        return 1
+    fi
+
+    if [ "$name" = "00-defaults" ]; then
+        echo "cannot disable 00-defaults" >&2
+        return 1
+    fi
+
+    mkdir -p "$CONFIG_D/disabled"
+    mv "$CONFIG_D/$name" "$CONFIG_D/disabled/$name"
+    echo "disabled: $name (moved to disabled/)"
 }
 
 _rebuild() {
@@ -75,12 +166,33 @@ case "${1:-auto}" in
         fi
         _rebuild
         ;;
+    ls|list)
+        _list
+        ;;
+    enable)
+        if [ -z "${2:-}" ]; then
+            echo "Usage: aws-config-d enable <name>" >&2
+            exit 1
+        fi
+        _enable "$2"
+        ;;
+    disable)
+        if [ -z "${2:-}" ]; then
+            echo "Usage: aws-config-d disable <name>" >&2
+            exit 1
+        fi
+        _disable "$2"
+        ;;
     -h|--help)
-        echo "Usage: aws-config-d [auto|--force|--help]"
+        echo "Usage: aws-config-d [command]"
         echo ""
-        echo "  auto      Check for changes and rebuild if needed (default)"
-        echo "  -f/--force  Rebuild unconditionally, resetting the drift hash"
-        echo "  -h/--help   Show this help"
+        echo "Commands:"
+        echo "  auto             Check for changes and rebuild if needed (default)"
+        echo "  ls, list         List enabled and disabled profile collections"
+        echo "  enable <name>    Enable a disabled profile collection"
+        echo "  disable <name>   Disable a profile collection (moves to disabled/)"
+        echo "  -f, --force      Rebuild unconditionally, resetting the drift hash"
+        echo "  -h, --help       Show this help"
         ;;
     *)
         echo "Unknown option: $1" >&2
