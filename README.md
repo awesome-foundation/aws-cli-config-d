@@ -1,4 +1,4 @@
-# aws-cli-config-d
+# aws-config-d
 
 Split your `~/.aws/config` into separate files per AWS organization.
 
@@ -40,14 +40,14 @@ A SHA-256 hash of the generated config is stored so that external modifications 
 ## Quick install
 
 ```bash
-bash -c 'tmp=$(mktemp -d) && git clone --depth 1 https://github.com/awesome-foundation/aws-cli-config-d.git "$tmp/aws-cli-config-d" && "$tmp/aws-cli-config-d/install.sh" && rm -rf "$tmp"'
+bash -c 'tmp=$(mktemp -d) && git clone --depth 1 https://github.com/awesome-foundation/aws-config-d.git "$tmp/aws-config-d" && "$tmp/aws-config-d/install.sh" && rm -rf "$tmp"'
 ```
 
 Or clone and run manually:
 
 ```bash
-git clone git@github.com:awesome-foundation/aws-cli-config-d.git
-cd aws-cli-config-d
+git clone git@github.com:awesome-foundation/aws-config-d.git
+cd aws-config-d
 ./install.sh
 ```
 
