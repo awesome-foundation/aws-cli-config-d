@@ -263,6 +263,7 @@ case "${1:-help}" in
             exit 1
         fi
         _enable "$2"
+        _rebuild
         ;;
     disable)
         if [ -z "${2:-}" ]; then
@@ -270,6 +271,7 @@ case "${1:-help}" in
             exit 1
         fi
         _disable "$2"
+        _rebuild
         ;;
     rm|remove)
         if [ -z "${2:-}" ]; then
@@ -277,6 +279,7 @@ case "${1:-help}" in
             exit 1
         fi
         _rm "$2"
+        _rebuild
         ;;
     help|-h|--help)
         _help
